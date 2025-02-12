@@ -1,31 +1,40 @@
 import numpy as np
-import scipy
+from scipy.fft import fft, ifft
 from matplotlib import pyplot as plt
 
-n_fft = 16
+
 opora = np.random.randint(-5, 5, 10)
-s_opora = scipy.fft.fft(opora, n=n_fft)
 signal = np.random.randint(-5, 5, 100)
-s = np.random.randint(-5, 5, 10)
-
-n = len(opora)
-m = n_fft - n + 1
-
-s1 = signal[:m]
-ss1 = scipy.fft.fft(s1, n=n_fft)
-x1 = scipy.fft.ifft(ss1 * s_opora, n=n_fft)
-
-s2_start = m
-s2 = signal[s2_start: s2_start+m]
-ss2 = scipy.fft.fft(s2, n=n_fft)
-x2 = scipy.fft.ifft(ss2 * s_opora, n=n_fft)
 
 
-plt.plot(x1, label="x1")
-plt.plot(np.pad(x2, (s2_start,0)), label="x2")
-plt.plot(np.convolve(signal, opora, "valid"), label="expected")
+def valid_from_full_conv(s, opora):
+    start = len(opora)-1
+    end = len(s)
+    # full_conv = np.convolve(s, opora)
+    n_fft = len(s) + len(opora) - 1
+    full_conv = ifft(fft(s, n=n_fft) * fft(opora, n=n_fft))
+    return full_conv[start: end]
+
+
+full_conv = np.convolve(signal, opora)
+valid_conv = full_conv[len(opora)-1: len(signal)]
+full_fft = ifft(fft(signal, n=len(signal)+len(opora)-1) * fft(opora, n=len(signal)+len(opora)-1))
+
+s1 = signal[:5]
+s2 = signal[5:12]
+s3 = signal[12:]
+
+prev = []
+t1 = valid_from_full_conv(np.append(prev, s1), opora)
+prev = np.append(prev, s1)[-(len(opora)-1):]
+t2 = valid_from_full_conv(np.append(prev, s2), opora)
+prev = np.append(prev, s2)[-(len(opora)-1):]
+t3 = valid_from_full_conv(np.append(prev, s3), opora)
+
+
+plt.plot(np.convolve(signal, opora, 'valid'), label="one part")
+plt.plot(np.concatenate([t1,t2,t3]), label="valid_from_full_conv")
 plt.legend()
 plt.show()
-print(1)
 
 

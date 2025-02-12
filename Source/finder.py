@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
-
+from scipy.fft import fft, ifft
 from Source.math_utils import xcorr, convolve
 
 
@@ -51,34 +51,25 @@ class MatchedFilter:
 
 
 class CorrelatorFFT:
-    def __init__(self, opora, n_fft=256):
-        self._s_opora = scipy.fft.fft(np.conj(opora), n=n_fft)
+    def __init__(self, opora, n_fft):
+        self._opora = opora
+        self._len_opora = len(opora)
+        self._opora_spectre = fft(np.conj(opora)[::-1], n=n_fft)
         self._n_fft = n_fft
         self._buf_capacity = len(opora) - 1
-        self._buf = np.zeros(self._buf_capacity, dtype=complex)
+        self._buf = []
+
+    def valid_from_full_conv(self, s):
+        start = self._len_opora - 1
+        end = len(s)
+        n_fft = len(s) + len(self._opora) - 1
+        full_conv = ifft(fft(s, n=n_fft) * fft(np.conj(self._opora)[::-1], n=n_fft))
+        return full_conv[start: end]
 
     def step(self, s):
-        required_data_size = self._n_fft - self._buf_capacity
-        z_list = []
-        for i in range(0, len(s), required_data_size):
-            z = self._step(s[i: i+required_data_size])
-            z_list.append(z)
-        return np.concatenate(z_list)
-
-    def _step(self, s):
-        s_cur = s[:self._n_fft - self._buf_capacity]
-        signal = np.append(self._buf, s_cur)
-
-        assert len(signal) <= self._n_fft
-
-        z = np.array([], dtype=complex)
-        if len(signal) == self._n_fft:
-            s_signal = scipy.fft.fft(signal, n=self._n_fft)
-            z = scipy.fft.ifft(s_signal * self._s_opora, n=self._n_fft)
-
-        new_buf = signal[-self._buf_capacity:]
-        self._buf = new_buf
-
+        prev_and_cur = np.append(self._buf, s)
+        z = self.valid_from_full_conv(prev_and_cur)
+        self._buf = prev_and_cur[-self._buf_capacity:]
         return z
 
     def reset(self):
@@ -112,16 +103,16 @@ if __name__ == '__main__':
     signal = signal + 0.2 * (np.random.randn(len(signal)) + 1j * np.random.randn(len(signal)))
 
     correlator = Correlator(opora)
-    correlator_fft = CorrelatorFFT(opora)
+    correlator_fft = CorrelatorFFT(opora, n_fft=128)
     expected = correlator.step(signal)
     correlator.reset()
 
     x = []
-    # x.append(correlator_fft.step(signal[:100]))
-    # x.append(correlator_fft.step(signal[100:300]))
-    # x.append(correlator_fft.step(signal[300:450]))
-    # x.append(correlator_fft.step(signal[450:]))
-    x.append(correlator_fft.step(signal))
+    x.append(correlator_fft.step(signal[:100]))
+    x.append(correlator_fft.step(signal[100:300]))
+    x.append(correlator_fft.step(signal[300:450]))
+    x.append(correlator_fft.step(signal[450:]))
+    # x.append(correlator_fft.step(signal))
     actual = np.concatenate(x)
 
     # s_opora = scipy.fft.fft(np.conj(opora[::-1]), n=len(signal))
