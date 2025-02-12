@@ -57,12 +57,13 @@ class CorrelatorFFT:
         self._opora_spectre = fft(np.conj(opora)[::-1], n=n_fft)
         self._n_fft = n_fft
         self._buf_capacity = len(opora) - 1
-        self._buf = []
+        self._buf = np.zeros(self._buf_capacity)
 
     def valid_from_full_conv(self, s):
         start = self._len_opora - 1
         end = len(s)
         n_fft = len(s) + len(self._opora) - 1
+        print(f"n_fft={n_fft}")
         full_conv = ifft(fft(s, n=n_fft) * fft(np.conj(self._opora)[::-1], n=n_fft))
         return full_conv[start: end]
 
@@ -107,33 +108,18 @@ if __name__ == '__main__':
     expected = correlator.step(signal)
     correlator.reset()
 
-    x = []
-    x.append(correlator_fft.step(signal[:100]))
-    x.append(correlator_fft.step(signal[100:300]))
-    x.append(correlator_fft.step(signal[300:450]))
-    x.append(correlator_fft.step(signal[450:]))
-    # x.append(correlator_fft.step(signal))
+    x = [[]]
+    n_fft_required = 199
+    n_fft = n_fft_required - 99
+    d_size = n_fft - 100 + 1
+    print(d_size)
+    for i in range(0, len(signal), d_size):
+        x.append(correlator_fft.step(signal[i: i + d_size]))
     actual = np.concatenate(x)
 
-    # s_opora = scipy.fft.fft(np.conj(opora[::-1]), n=len(signal))
-    # s_signal = scipy.fft.fft(signal, n=len(signal))
-    # actual = scipy.fft.ifft(s_signal * s_opora, n=len(signal))
-    #
-    # w_size = len(opora) - 1
-    # s_opora2 = scipy.fft.fft(np.conj(opora[::-1]), n=272)
-    # s1,s2 = signal[:272],signal[272:]
-    # s_signal1 = scipy.fft.fft(s1)
-    # s_signal2 = scipy.fft.fft(s2)
-    # actual1 = scipy.fft.ifft(s_signal1 * s_opora2)
-    # actual2 = scipy.fft.ifft(s_signal2 * s_opora2)
-    #
-    # plt.plot(actual1)
-    # plt.plot(np.pad(actual2, (len(actual1),0)))
-    # plt.show()
+    print(len(actual))
 
-    plt.plot(actual, label="actual")
+    plt.plot(actual[99:], label="actual")
     plt.plot(expected, label="expected")
-    # plt.plot(actual[-N:], label="correlator_fft_cut")
-    # plt.plot(np.append(actual1,actual2), label="correlator_fft2")
     plt.legend()
     plt.show()
