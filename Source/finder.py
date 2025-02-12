@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from Source.math_utils import xcorr
+from Source.math_utils import xcorr, convolve
 
 
 class Correlator:
@@ -17,6 +17,28 @@ class Correlator:
         if len(signal) >= len(self._opora):
             z = xcorr(signal, self._opora)
             # z = np.correlate(signal, self._opora, mode='valid')
+
+        new_buf = np.append(self._buf, s)[-self._buf_capacity:]
+        self._buf = new_buf
+
+        return z
+
+    def reset(self):
+        self._buf = []
+
+
+class MatchedFilter:
+    def __init__(self, opora):
+        self._h = np.conj(opora[::-1])
+        self._buf = []
+        self._buf_capacity = len(opora) - 1
+
+    def step(self, s):
+        signal = np.append(self._buf, s)
+
+        z = np.array([])
+        if len(signal) >= len(self._h):
+            z = convolve(signal, self._h)
 
         new_buf = np.append(self._buf, s)[-self._buf_capacity:]
         self._buf = new_buf
