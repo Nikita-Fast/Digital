@@ -19,10 +19,10 @@ class MatchedFilterFFT:
         L = len(s)
         P = self.ref_signal_len
 
+        if self.n_fft < 2*P:
+            raise RuntimeError("Размер FFT слишком маленький")
         if L <= P:
             raise RuntimeError("Входной сигнал слишком короткий")
-        if self.n_fft < L+P-1:
-            raise RuntimeError("Размер FFT слишком маленький или входной сигнал слишком длинный")
 
         z = ifft(fft(s, n=self.n_fft) * self.ref_signal_spectre)
 
@@ -40,11 +40,11 @@ class MatchedFilterFFT:
 
 if __name__ == '__main__':
     np.random.seed(0)
-    opora = np.random.choice([-1, 1], 32) + 1j*np.random.choice([-1, 1], 32)
-    s = np.random.choice([-1, 1], 200) + 1j*np.random.choice([-1, 1], 200)
+    opora = np.random.choice([-1, 1], 100) + 1j*np.random.choice([-1, 1], 100)
+    s = np.pad(opora, (400, 400))
     s = s + 0.01 * (np.random.randn(len(s)) + 1j*np.random.randn(len(s)))
 
-    mf_fft  = MatchedFilterFFT(opora, n_fft=128)
+    mf_fft  = MatchedFilterFFT(opora, n_fft=512)
     res = [[]]
     i = 0
     while i + mf_fft.max_input_size < len(s):
@@ -52,7 +52,11 @@ if __name__ == '__main__':
         i += mf_fft.max_input_size
     res = np.concatenate(res)
 
-    plt.plot(np.abs(np.correlate(s, opora, 'full')), label="np.correlate")
+    np_corr = np.correlate(s, opora, 'full')
+
+    assert np.all(np.isclose(np_corr[:len(res)], res[:len(res)]))
+
+    plt.plot(np.abs(np_corr), label="np.correlate")
     plt.plot(np.abs(res), label="MatchedFilterFFT")
     plt.legend()
     plt.show()
